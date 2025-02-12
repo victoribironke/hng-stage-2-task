@@ -20,11 +20,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Build and push Docker image to ECR
+      - name: Login to ECR
         run: |
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+      - name: Build and push Docker image to ECR
+        run: |
           docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/your-fastapi-image:latest .
           docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/your-fastapi-image:latest
+
+      - name: Create S3 Zip file of the application
+        run: |
+          zip -r your-app-bundle.zip . -x "*.git*" # Exclude .git directory
+
+      - name: Upload the zip file to S3
+        run: |
+          aws s3 cp your-app-bundle.zip s3://your-s3-bucket/your-app-bundle.zip
 
       - name: Deploy to Elastic Beanstalk
         run: |
