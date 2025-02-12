@@ -1,0 +1,15 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "ContainerDefinitions": [
+    {
+      "Name": "fastapi-container",
+      "Image": "816069139198.dkr.ecr.eu-north-1.amazonaws.com/hng-stage-2-task:latest",
+      "PortMappings": [
+        {
+          "HostPort": 8080,
+          "ContainerPort": 8080
+        }
+      ]
+    }
+  ]
+}
