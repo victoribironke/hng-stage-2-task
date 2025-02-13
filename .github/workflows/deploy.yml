@@ -60,10 +60,16 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           script: |
-            # Stop and remove all containers first
+            # Check and stop system-level nginx if it's running
+            sudo systemctl stop nginx || true
+
+            # Find and kill any process using port 80
+            sudo lsof -t -i:80 | xargs -r sudo kill -9 || true
+
+            # Stop all running containers
             docker-compose down --remove-orphans || true
 
-            # Force remove any remaining containers
+            # Remove all project-related containers
             docker ps -a | grep "victoribironke/hng-stage-2-task" | awk '{print $1}' | xargs -r docker rm -f || true
 
             # Clean up networks
