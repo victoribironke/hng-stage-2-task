@@ -74,21 +74,19 @@ jobs:
           script: |
             cd ~/app
 
-            # Ensure proper permissions
-            chmod 644 docker-compose.yml nginx/nginx.conf
+            # Stop all containers and remove them
+            docker-compose down -v --remove-orphans || true
 
-            # Stop existing containers
-            docker-compose down --remove-orphans || true
+            # Remove specific containers if they still exist
+            docker rm -f hng-stage-2-nginx hng-stage-2-app || true
 
-            # Kill any process using port 80
-            sudo lsof -t -i:80 | xargs -r sudo kill -9 || true
-
-            # Clean up containers and images
-            docker ps -a | grep "victoribironke/hng-stage-2-task" | awk '{print $1}' | xargs -r docker rm -f || true
+            # Clean up images
+            docker image prune -f
             docker images | grep "victoribironke/hng-stage-2-task" | awk '{print $3}' | xargs -r docker rmi -f || true
 
             # Clean up networks
-            docker network prune -f || true
+            docker network rm hng-stage-2-network || true
+            docker network prune -f
 
             # Small pause to ensure cleanup is complete
             sleep 5
