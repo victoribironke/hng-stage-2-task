@@ -1,4 +1,4 @@
-name: Deploy to AWS
+name: Deploy to VPS
 
 on:
   push:
@@ -10,34 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
       - uses: actions/checkout@v3
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Build and push Docker image (to Docker Hub)
+        run: |
+          docker build -t victoribironke/hng-stage-2-task:latest .
+          docker login -u victoribironke -p ${{ secrets.DOCKER_HUB_PASSWORD }}
+          docker push victoribironke/hng-stage-2-task:latest
+
+      - name: Deploy to VPS via SSH
+        uses: webber/ghaction-ssh@v6
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Login to ECR
-        run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-
-      - name: Build and push Docker image to ECR
-        run: |
-          docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/your-fastapi-image:latest .
-          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/your-fastapi-image:latest
-
-      - name: Create S3 Zip file of the application
-        run: |
-          zip -r your-app-bundle.zip . -x "*.git*" # Exclude .git directory
-
-      - name: Upload the zip file to S3
-        run: |
-          aws s3 cp your-app-bundle.zip s3://your-s3-bucket/your-app-bundle.zip
-
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          aws elasticbeanstalk create-application-version --application-name your-eb-application-name --version-label v${{ github.sha }} --source-bundle S3Bucket=your-s3-bucket,S3Key=your-app-bundle.zip
-          aws elasticbeanstalk update-environment --application-name your-eb-application-name --environment-name your-eb-environment-name --version-label v${{ github.sha }}
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          port: 22
+          script: |
+            docker pull your-dockerhub-username/your-repo-name:latest
+            docker-compose down # Stop and remove existing containers
+            docker-compose up -d
