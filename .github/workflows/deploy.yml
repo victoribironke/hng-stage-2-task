@@ -12,6 +12,7 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -19,11 +20,13 @@ jobs:
           logout: true
           username: victoribironke
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      - name: Extract metadata (labels, tags, etc.) for Docker
+
+      - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: victoribironke/hng-stage-2-task
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -40,23 +43,33 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: copy file via ssh key
+
+      - name: Copy configuration files
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
-          source: "docker-compose.yml, nginx/nginx.conf"
+          source: "docker-compose.yml,nginx/nginx.conf"
           target: .
-      - name: run docker-compose
+
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           script: |
-            docker-compose down
-            docker rmi -f $(docker images -q)
+            # Stop all containers related to the project
+            docker-compose down --remove-orphans || true
+
+            # Remove all related containers
+            docker ps -a | grep "victoribironke/hng-stage-2-task" | awk '{print $1}' | xargs -r docker rm -f
+
+            # Remove old images
+            docker images | grep "victoribironke/hng-stage-2-task" | awk '{print $3}' | xargs -r docker rmi -f
+
+            # Pull and start new containers
             docker-compose pull
             docker-compose up -d
 
