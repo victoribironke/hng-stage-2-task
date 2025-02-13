@@ -6,64 +6,11 @@ on:
       - main
 
 jobs:
-  build_and_push:
-    name: Push docker image to Docker Hub
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repository
-        uses: actions/checkout@v4
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          ecr: auto
-          logout: true
-          username: victoribironke
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: victoribironke/hng-stage-2-task
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: victoribironke/hng-stage-2-task:latest
-          labels: ${{ steps.meta.outputs.labels }}
-
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' }}
-    needs: [build_and_push]
+    if: github.ref == 'refs/heads/main'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup deploy directory
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS_IP }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_PRIVATE_KEY }}
-          script: |
-            # Create nginx directory with proper permissions
-            mkdir -p ~/app/nginx
-            chmod 755 ~/app ~/app/nginx
-
-      - name: Copy configuration files
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.VPS_IP }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_PRIVATE_KEY }}
-          source: "docker-compose.yml,nginx/nginx.conf"
-          target: "~/app"
-          strip_components: 0
+      - uses: actions/checkout@v4
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.0
@@ -72,79 +19,8 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           script: |
-            cd ~/app
-
-            # Stop all containers and remove them
-            docker-compose down -v --remove-orphans || true
-
-            # Remove specific containers if they still exist
-            docker rm -f hng-stage-2-nginx hng-stage-2-app || true
-
-            # Clean up images
-            docker image prune -f
-            docker images | grep "victoribironke/hng-stage-2-task" | awk '{print $3}' | xargs -r docker rmi -f || true
-
-            # Clean up networks
-            docker network rm hng-stage-2-network || true
-            docker network prune -f
-
-            # Small pause to ensure cleanup is complete
-            sleep 5
-
-            # Pull and start containers
-            docker-compose pull
-            docker-compose up -d --force-recreate
-
-    # runs-on: ubuntu-latest
-    # permissions:
-    #   contents: read
-
-    # steps:
-    #   - uses: actions/checkout@v3
-
-    #   - name: Create docker-compose.yml
-    #     run: |
-    #       cat > docker-compose.yml << 'EOL'
-    #       version: '3'
-    #       services:
-    #         app:
-    #           image: victoribironke/hng-stage-2-task:latest
-    #           ports:
-    #             - "8080:80"
-    #           restart: always
-    #       EOL
-
-    #   - name: Login to Docker Hub
-    #     uses: docker/login-action@v2
-    #     with:
-    #       username: victoribironke
-    #       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
-    #   - name: Build and push Docker image
-    #     uses: docker/build-push-action@v4
-    #     with:
-    #       context: .
-    #       push: true
-    #       tags: victoribironke/hng-stage-2-task:latest
-
-    #   - name: Copy docker-compose.yml to VPS
-    #     uses: appleboy/scp-action@master
-    #     with:
-    #       host: ${{ secrets.VPS_IP }}
-    #       username: ${{ secrets.VPS_USERNAME }}
-    #       key: ${{ secrets.VPS_PRIVATE_KEY }}
-    #       port: 22
-    #       source: "docker-compose.yml"
-    #       target: "~"
-
-    #   - name: Deploy to VPS via SSH
-    #     uses: appleboy/ssh-action@master
-    #     with:
-    # host: ${{ secrets.VPS_IP }}
-    # username: ${{ secrets.VPS_USERNAME }}
-    # key: ${{ secrets.VPS_PRIVATE_KEY }}
-    #       port: 22
-    #       script: |
-    #         docker pull victoribironke/hng-stage-2-task:latest
-    #         docker-compose down
-    #         docker-compose up -d
+            cd ~/hng-stage-2-task
+            git pull origin main
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart hng-stage-2
