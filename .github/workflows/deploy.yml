@@ -55,10 +55,10 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           script: |
-            docker compose down
+            docker-compose down
             docker rmi -f $(docker images -q)
-            docker compose pull
-            docker compose up -d
+            docker-compose pull
+            docker-compose up -d
 
     # runs-on: ubuntu-latest
     # permissions:
